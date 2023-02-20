@@ -7,24 +7,255 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# load the package
+library(tidyverse)
+library(ggplot2)
 ```
 
-## R Markdown
+# Load and check data:
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+#### 1. create a new rmarkdown document with an appropriate title.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+# show the work directory
+getwd()
 ```
 
-## Including Plots
+The name of this file is **ps5**.
 
-You can also embed plots, for example:
+#### 2. Load data. How many rows/columns do we have?
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+# load the data
+data <- read_delim("data/gapminder.csv")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The *gapminder* data contains `r nrow(data)` rows and `r ncol(data)` columns.
+
+#### 3. Print a small sample of data. Does it look OK?
+
+```{r}
+data %>% 
+  sample_n(3) %>% 
+  knitr::kable()
+```
+
+The data showed *in the table view* looks good, but when it *prints out as a table* it looks a little bit too long. 
+
+# Descriptive statistics:
+
+#### 1. How many countries are there in the dataset?
+
+```{r}
+data %>% 
+  select(iso2, iso3, name) %>%
+  summarize(
+    num_iso2 = n_distinct(iso2),
+    num_iso3 = n_distinct(iso3),
+    num_name = n_distinct(name)
+  )
+```
+
+There are **249** countries in *iso2* column, **253** countries in *iso3* column, **250** countries in *name* column.
+
+#### 2. If you did this correctly, you saw that there are more iso-2 codes than names, and there are even more iso3 -codes. What is going on? Can you find it out?
+
+##### a).Find how many names are there for each iso-2 code. Are there any iso-2 codes that correspond to more than one name? What are these countries?
+
+```{r}
+data %>% 
+  group_by(iso2) %>% 
+  summarize(num_name = n_distinct(name),
+            country_name = toString(unique(name))) %>% 
+  filter(num_name > 1) 
+```
+
+There are **2** iso-2 codes that correspond to more than one name. 
+The country is *Namibia*, and NA value. 
+
+##### b). Now repeat the same for name and iso3-code. Are there country names that have more than one iso3-code? What are these countries?
+
+```{r}
+data %>% 
+  group_by(iso3) %>% 
+  summarize(num_name = n_distinct(name)) %>% 
+  filter(num_name > 1)
+```
+
+There is no iso-3 codes that correspond to more than one name. 
+
+#### 3. What is the minimum and maximum year in these data?
+
+```{r}
+x <- min(data$time, na.rm = TRUE)
+x
+
+y <- max(data$time, na.rm = TRUE)
+y
+```
+
+The *minimum* year is `r x`, and *maximum* year is `r y`. 
+
+#  CO2 emissions: 
+
+#### 1. How many missing co2 emissions are there for each year? Analyze both missing CO2 and co2_PC. Which years have most missing data?
+
+```{r}
+data %>% 
+  group_by(time) %>% 
+  summarize(
+    missing_co2 = sum(is.na(co2)),
+    missing_co2_pc = sum(is.na(co2_PC))
+  ) %>% 
+  mutate(total_missing = missing_co2 + missing_co2_pc) %>% 
+  arrange(desc(total_missing))
+```
+
+*Year 2017, 2018, 2019* have the most missing data. 
+
+#### 2. Make a plot of total CO2 emissions over time for the U.S, China, and India. Add a few more countries of your choice. Explain what do you see.
+
+```{r}
+# select the variables that we need for plot
+country <- c("United States of America", "China", "India", "France", "Singapore", "Italy")
+filtered_data <- data %>% 
+  filter(name %in% country, !is.na(co2)) %>% 
+  select(name, time, co2)
+
+filtered_data %>% 
+  ggplot(aes(x = time, y = co2, col = factor(name))) +
+  geom_line() +
+  labs(title = "Total CO2 Emissions Over Time", 
+       x = "Time (years)", 
+       y = "CO2 emissions (kt)",
+       col = "Country\n#")
+```
+
+In the plot, **United States of America** got the highest $CO_2$ emissions over the time, when about *2005*, **India** and **China** have a strong increase, **China** has token the highest place. **Italy**, **Singapore**, and **France** are stabled in a low $CO_2$ emissions level. 
+
+#### 3. Now let’s analyze the CO2 emissions per capita (co2_PC). Make a similar plot of the same countries. What does this figure suggest?
+
+```{r}
+# select the variables that we need for plot
+selected_data <- data %>% 
+  filter(name %in% country, !is.na(co2_PC)) %>% 
+  select(name, time, co2_PC)
+
+selected_data %>% 
+  ggplot(aes(x = time, y = co2_PC, col = factor(name))) +
+  geom_line() +
+  labs(title = "Total CO2 Emissions Over Time", 
+       x = "Time (years)", 
+       y = "CO2 emissions (metric tons per capita)",
+       col = "Country\n#")
+```
+
+In this plot, **United States of America** has the highest $CO_2$ emissions over the time, which **Italy** has the lowest $CO_2$ emissions over the time. **France** is decreasing, **China** and **India** are increasing, and **Singapore** has the biggest change over the time. 
+
+#### 4. Compute average CO2 emissions per capita across the continents (assume region is the same as continent). Comment what do you see.
+
+```{r}
+data %>% 
+  group_by(region, time) %>% 
+  filter(!is.na(co2_PC), !is.na(region)) %>% 
+  summarize(avg_co2_PC = mean(co2_PC, na.rm = TRUE), .groups = 'drop') %>% 
+  ggplot(aes(x = time, y = avg_co2_PC, color = region)) +
+  geom_line() +
+  labs(title = "Average CO2 Emissions per Capita Across the Continents", 
+       x = "Time (years)", 
+       y = "CO2 emissions (metric tons per capita)",
+       col = "Country\n#")
+```
+
+In this plot, **Africa** has the lowest $CO_2$ emissions, **America** has the highest $CO_2$ emissions before *1985* and decreasing after that. **Europe** has the highest $CO_2$ emissions after *1985*. **Oceania** and **Asian** have a peak between *1960* and *1990* then stabled. 
+
+#### 5. Make a barplot where you show the previous results–average CO2 emissions per capita across continents in 1960 and 2016.
+
+```{r}
+data %>% 
+  filter(time %in% c(1960, 2016)) %>% 
+  group_by(region, time) %>% 
+  filter(!is.na(co2_PC), !is.na(region)) %>%
+  summarize(avg_co2_PC = mean(co2_PC, na.rm = TRUE), .groups = 'drop') %>% 
+  ggplot(aes(x = region, y = avg_co2_PC, fill = factor(time))) +
+  geom_col(position = "dodge") +
+  labs(title = "Average CO2 Emissions per Capita Across the Continents in 1960 and 2016",
+       x = "Region", y = "Average CO2 emissions (metric tons per capita)",
+       fill = "Year") 
+```
+
+#### 6. Which countries are the three largest, and three smallest CO2 emitters (in terms of CO2 per capita) in 2019 for each continent? (Assume region is continent)
+
+```{r}
+data %>% 
+  filter(time == 2019, !is.na(co2_PC), !is.na(region)) %>% 
+  group_by(region) %>% 
+  arrange(desc(co2_PC)) %>% 
+  summarize(
+    largest = list(head(name, n = 3)),
+    smallest = list(tail(name, n = 3))
+  )
+```
+
+Since the *co2_PC* values in *2019* are all NA which is missing value, the code can't return any results. 
+
+# GDP per capita: 
+
+#### 1. Make a scatterplot of GDP per capita versus life expectancy by country, using data for 1960. Make the point size dependent on the country size, and color those according to the continent. Feel free to adjust the plot in other ways to make it better. Comment what do you see there.
+
+```{r}
+data %>% 
+  filter(time == 1960, !is.na(GDP_PC), 
+         !is.na(lifeExpectancy), !is.na(region)) %>% 
+  ggplot(aes(x = GDP_PC, y = lifeExpectancy, col = factor(region))) + 
+  geom_point(size = 3) + 
+  labs(title = "GDP per Capita Versus Life Expectancy by Country", 
+       x = "GDP per capita (constant 2010 US$)", 
+       y = "life expectancy (years)",
+       col = "Region\n#")
+```
+
+From this scatter-plot, we could see that country with *higher* GDP has a *higher* LE. **Europe** has the *highest* GDP and *highest* LE in the plot, which **Africa** has the *lowest* GDP and *lowest* LE. **Asia** was spread more in the *low* GDP and *low* LE area, some are at *high* LE area. **America** was spread more in the *middle* GDP level and *middle-high* LE area, a few are at *low* LE area. **Oceania** were *equally spread* in the plot. 
+
+#### 2. Make a similar plot, but this time use 2019 data only
+
+```{r}
+data %>% 
+  filter(time == 2019, !is.na(GDP_PC), 
+         !is.na(lifeExpectancy), !is.na(region)) %>% 
+  ggplot(aes(x = GDP_PC, y = lifeExpectancy, col = factor(region))) + 
+  geom_point(size = 3) + 
+  labs(title = "GDP per Capita Versus Life Expectancy by Country", 
+       x = "GDP per capita (constant 2010 US$)", 
+       y = "life expectancy (years)",
+       col = "Region\n#")
+```
+
+#### 3. Compare these two plots and comment what do you see. How has world developed through the last 60 years?
+
+Almost all region were gaining a *higher* level of GDP and LE. There is a **significant growth** of LE level for **Oceania**. **Asia** has both **significant growth** on GDP and LE level. **America** and **Europe** were in the *similar position* to 60 years ago, but still could see *small increasing* of LE level for **America**. 
+
+#### 4.Compute the average life expectancy for each continent in 1960 and 2019. Do the results fit with what do you see on the figures?
+
+
+
+#### 5.Compute the average LE growth from 1960-2019 across the continents. Show the results in the order of growth. Explain what do you see.
+
+
+
+#### 6.Show the histogram of GDP per capita for years of 1960 and 2019. Try to put both histograms on the same graph, see how well you can do it!
+
+
+
+#### 7.What was the ranking of US in terms of life expectancy in 1960 and in 2019? (When counting from top.)
+
+
+
+#### 8. If you did this correctly, then you noticed that US ranking has been falling quite a bit. But we also have more countries in 2019–what about the relative rank divided by the corresponding number of countries that have LE data in the corresponding year?
+
+
+# Final wrap up:
+
+#### tell us how many hours did you spend on this PS
+
+
