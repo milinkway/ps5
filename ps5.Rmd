@@ -292,9 +292,15 @@ data %>%
 #### 8. If you did this correctly, then you noticed that US ranking has been falling quite a bit. But we also have more countries in 2019–what about the relative rank divided by the corresponding number of countries that have LE data in the corresponding year?
 
 ```{r}
-
+data %>% 
+  filter(time %in% c(1960, 2019), 
+         !is.na(lifeExpectancy), !is.na(name)) %>% 
+  group_by(time) %>% 
+  mutate(ranking = rank(desc(lifeExpectancy)),
+         relative_ranking = ranking / n_distinct(name)) %>% 
+  filter(name == "United States of America") %>% 
+  select(time, relative_ranking)
 ```
-
 
 # Final wrap up:
 
