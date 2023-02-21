@@ -237,25 +237,67 @@ Almost all region were gaining a *higher* level of GDP and LE. There is a **sign
 
 #### 4.Compute the average life expectancy for each continent in 1960 and 2019. Do the results fit with what do you see on the figures?
 
+```{r}
+data %>% 
+  filter(time %in% c(1960, 2019), !is.na(lifeExpectancy), !is.na(region)) %>% 
+  group_by(region, time) %>% 
+  summarize(
+    avg_LE = mean(lifeExpectancy)
+  )
+```
 
+Yes, the result fits what I saw in the figure. There is a *increasing* in LE for all region and **Asia** has the *biggest increase*. 
 
 #### 5.Compute the average LE growth from 1960-2019 across the continents. Show the results in the order of growth. Explain what do you see.
 
+```{r}
+data %>% 
+  filter(time %in% c(1960, 2019), !is.na(lifeExpectancy), 
+         !is.na(region)) %>% 
+  group_by(region, time) %>% 
+  summarize(avg_LE = mean(lifeExpectancy, na.rm = TRUE)) %>% 
+  mutate(prev = lag(avg_LE),
+         growth = avg_LE - prev) %>% 
+  arrange(growth)
+```
 
+After the computation, I see **Asia** has the *highest increase* over all continents, which **Europe** has *least increase* over all continents. Other continents are all *having an increasing* for LE. 
 
 #### 6.Show the histogram of GDP per capita for years of 1960 and 2019. Try to put both histograms on the same graph, see how well you can do it!
 
-
+```{r}
+data %>% 
+  filter(time %in% c(1960, 2019), !is.na(GDP_PC)) %>% 
+  ggplot(aes(x = GDP_PC, fill = factor(time))) + 
+  geom_histogram(alpha = 0.5, position = "dodge", bins = 30) + 
+  labs(title = "GDP per capita for years of 1960 and 2019", 
+       x = "GDP per capita", 
+       y = "Counts", 
+       fill = "Year\n#") + 
+  scale_fill_manual(values = c("red", "blue"))
+```
 
 #### 7.What was the ranking of US in terms of life expectancy in 1960 and in 2019? (When counting from top.)
 
-
+```{r}
+data %>% 
+  filter(time %in% c(1960, 2019), 
+         !is.na(lifeExpectancy), !is.na(name)) %>% 
+  group_by(time) %>% 
+  mutate(USA_ranking = rank(desc(lifeExpectancy))) %>% 
+  filter(name == "United States of America") %>% 
+  select(time, USA_ranking) 
+```
 
 #### 8. If you did this correctly, then you noticed that US ranking has been falling quite a bit. But we also have more countries in 2019–what about the relative rank divided by the corresponding number of countries that have LE data in the corresponding year?
+
+```{r}
+
+```
 
 
 # Final wrap up:
 
 #### tell us how many hours did you spend on this PS
 
-
+I would like to say 15 hours, I spent a lot of time to get rid of the error. 
